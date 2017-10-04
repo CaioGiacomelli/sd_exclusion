@@ -171,7 +171,7 @@ class Process:
                         self.ack = 0
                         self.nack = 0
 
-host = '192.168.0.105'
+host = '200.9.84.129'
 process_number = 1
 p = [Process(process_number, host, 5000), Process(process_number + 1, host, 5001), Process(process_number + 2, host, 5002)]
 

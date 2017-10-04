@@ -1,5 +1,4 @@
 from threading import Thread
-# TODO: fica a opção no option e ai fica mandando td pra quem n quer mais usar o recurso
 
 class Message:
 
