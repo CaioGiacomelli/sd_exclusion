@@ -39,11 +39,10 @@ def send_request(accept, pr, is_ack, done):
                 tcp.close()
             p[j-1].ts += 1
 
-    else:
-        for j in pr:
+    elif accept:
             tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            tcp.connect((host, p[j-1].port))
-            m1 = message.Message(0, is_ack, 1, done) # Fazer depois a mensagem ACK ou NACK
+            tcp.connect((host, p[pr - 1].port))
+            m1 = message.Message(0, is_ack, 1, done)  # Fazer depois a mensagem ACK ou NACK
             m_dumped = pickle.dumps(m1)
             x = tcp.send(m_dumped)
             tcp.close()
@@ -107,40 +106,39 @@ class Process:
                     ts_process = str(self.ts) + str(self.pid)
                     ts_process = int(ts_process)
 
+                    print("processo: ", self.pid, "mensagem ts: ", new_m.ts, " ts_process: ", ts_process)
+
                     if new_m.ts > ts_process:
                         st = str(new_m.ts)
                         y = st[(len(st) - 1):]
-                        x = [int(y)]
+                        x = int(y)
 
-                        print(self.pid, ts_process, new_m.ts, self.process_list[0].ts)
-
-                        self.queue.append(x[0])
-
-                        print("Processo ", x[0], " esta na fila de ", self.pid)
-
-                        if self.pid != x[0]:
-                            print("here")
+                        if self.pid != x:
                             thread3 = MyThread(1, x, 0, 0)
                             thread3.start()
+                            self.queue.append(x)
+
+                        print("Processo ", x, " esta na fila de ", self.pid)
+
+
 
                     if new_m.ts < ts_process:
 
                         st = str(new_m.ts)
                         y = st[(len(st) - 1):]
-                        x = [int(y)]
+                        x = int(y)
 
-                        print(self.pid, ts_process, new_m.ts, self.process_list[0].ts)
-                        if self.pid != x[0]:
+                        if self.pid != x:
                             thread3 = MyThread(1, x, 1, 0)
                             thread3.start()
 
                 if self.recurso == 0:
                     st = str(new_m.ts)
                     y = st[(len(st) - 1):]
-                    x = [int(y)]
+                    x = int(y)
 
-                    print(self.pid)
-                    if self.pid != x[0]:
+                    if self.pid != x:
+                        print("self.pid: ", self.pid, " x: ", x)
                         thread3 = MyThread(1, x, 1, 0)
                         thread3.start()
 
@@ -153,10 +151,9 @@ class Process:
 
                 ts_process = str(self.ts) + str(self.pid)
                 ts_process = int(ts_process)
-
                 if self.ack == (len(self.process_list) - 1) and self.recurso:
 
-                        print("Processo ", self.pid, " utilizou o recurso ", self.recurso, self.nack, ts_process)
+
                         self.ack = 0
                         self.nack = 0
                         self.recurso = 0
@@ -170,32 +167,37 @@ class Process:
                                     ts_process = str(self.ts) + str(self.pid)
                                     ts_process = int(ts_process)
 
-                            thread4 = MyThread(1, self.process_list[self.queue[0]], 1, 1)
-                            thread4.start()
+                        if len(self.queue) != 0:
+
+                            for item in self.queue:
+                                thread4 = MyThread(1, item, 1, 1)
+                                thread4.start()
 
                         self.queue = []
+                        print("Processo ", self.pid, " utilizou o recurso ", ts_process)
 
-                elif new_m.done and self.recurso:
-                    print("Processo ", self.pid, " utilizou o recurso ", self.recurso, self.nack, ts_process)
-                    self.ack = 0
-                    self.nack = 0
-                    self.recurso = 0
+                # elif self.ack == (len(self.process_list) - 1) and new_m.done and self.recurso:
+                #     print("Processo ", self.pid, " utilizou o recurso ", self.recurso, self.ack, ts_process)
+                #     self.ack = 0
+                #     self.nack = 0
+                #     self.recurso = 0
+                #
+                #     for p in self.process_list:
+                #         ts_p = str(p.ts) + str(p.pid)
+                #         ts_p = int(ts_p)
+                #         while (ts_process < ts_p):
+                #             while ts_p > ts_process:
+                #                 self.ts += 1
+                #                 ts_process = str(self.ts) + str(self.pid)
+                #                 ts_process = int(ts_process)
+                #
+                #     for item in self.queue:
+                #         thread5 = MyThread(1, item, 1, 1)
+                #         thread5.start()
+                #
+                #     self.queue = []
 
-                    for p in self.process_list:
-                        ts_p = str(p.ts) + str(p.pid)
-                        ts_p = int(ts_p)
-                        while (ts_process < ts_p):
-                            while ts_p > ts_process:
-                                self.ts += 1
-                                ts_process = str(self.ts) + str(self.pid)
-                                ts_process = int(ts_process)
-
-                        thread5 = MyThread(1, self.process_list[self.queue[0]], 1, 1)
-                        thread5.start()
-
-                    self.queue = []
-
-host = '192.168.0.106'
+host = '127.0.0.1'
 process_number = 1
 p = [Process(process_number, host, 5000), Process(process_number + 1, host, 5001), Process(process_number + 2, host, 5002)]
 
