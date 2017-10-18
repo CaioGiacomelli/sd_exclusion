@@ -9,20 +9,21 @@ import time
 
 class MyThread (threading.Thread):
 
-    def __init__(self, accept, pr, is_ack):
+    def __init__(self, accept, pr, is_ack, done):
 
         threading.Thread.__init__(self)
         self.accept = accept
         self.pr = pr
         self.is_ack = is_ack
+        self.done = done
         # self.name = name
         # self.counter = counter
 
     def run(self):
-        send_request(self.accept, self.pr, self.is_ack)
+        send_request(self.accept, self.pr, self.is_ack, self.done)
 
 
-def send_request(accept, pr, is_ack):
+def send_request(accept, pr, is_ack, done):
 
     if not accept:
         for j in pr:
@@ -32,20 +33,17 @@ def send_request(accept, pr, is_ack):
             for process in p:
                 tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 tcp.connect((host, process.port))
-                m1 = message.Message(message_ts, 0, accept)
+                m1 = message.Message(message_ts, 0, accept, done)
                 m_dumped = pickle.dumps(m1)
-                x = tcp.send(m_dumped)
+                tcp.send(m_dumped)
                 tcp.close()
             p[j-1].ts += 1
 
     else:
-
-        print(pr)
-
         for j in pr:
             tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             tcp.connect((host, p[j-1].port))
-            m1 = message.Message(0, is_ack, 1) # Fazer depois a mensagem ACK ou NACK
+            m1 = message.Message(0, is_ack, 1, done) # Fazer depois a mensagem ACK ou NACK
             m_dumped = pickle.dumps(m1)
             x = tcp.send(m_dumped)
             tcp.close()
@@ -116,8 +114,13 @@ class Process:
 
                         print(self.pid, ts_process, new_m.ts, self.process_list[0].ts)
 
+                        self.queue.append(x[0])
+
+                        print("Processo ", x[0], " esta na fila de ", self.pid)
+
                         if self.pid != x[0]:
-                            thread3 = MyThread(1, x, 0)
+                            print("here")
+                            thread3 = MyThread(1, x, 0, 0)
                             thread3.start()
 
                     if new_m.ts < ts_process:
@@ -128,7 +131,7 @@ class Process:
 
                         print(self.pid, ts_process, new_m.ts, self.process_list[0].ts)
                         if self.pid != x[0]:
-                            thread3 = MyThread(1, x, 1)
+                            thread3 = MyThread(1, x, 1, 0)
                             thread3.start()
 
                 if self.recurso == 0:
@@ -138,10 +141,10 @@ class Process:
 
                     print(self.pid)
                     if self.pid != x[0]:
-                        thread3 = MyThread(1, x, 1)
+                        thread3 = MyThread(1, x, 1, 0)
                         thread3.start()
 
-            else:
+            elif new_m.accept:
 
                 if new_m.is_ack:
                     self.ack+=1
@@ -151,10 +154,9 @@ class Process:
                 ts_process = str(self.ts) + str(self.pid)
                 ts_process = int(ts_process)
 
-                if (self.ack + self.nack) == (len(self.process_list) - 1):
+                if self.ack == (len(self.process_list) - 1) and self.recurso:
 
-                    if self.ack == (len(self.process_list) - 1) and self.recurso:
-                        print("Processo ", self.pid, " utilizou o recurso ", self.recurso, self.nack)
+                        print("Processo ", self.pid, " utilizou o recurso ", self.recurso, self.nack, ts_process)
                         self.ack = 0
                         self.nack = 0
                         self.recurso = 0
@@ -167,11 +169,33 @@ class Process:
                                     self.ts += 1
                                     ts_process = str(self.ts) + str(self.pid)
                                     ts_process = int(ts_process)
-                    else:
-                        self.ack = 0
-                        self.nack = 0
 
-host = '200.9.84.129'
+                            thread4 = MyThread(1, self.process_list[self.queue[0]], 1, 1)
+                            thread4.start()
+
+                        self.queue = []
+
+                elif new_m.done and self.recurso:
+                    print("Processo ", self.pid, " utilizou o recurso ", self.recurso, self.nack, ts_process)
+                    self.ack = 0
+                    self.nack = 0
+                    self.recurso = 0
+
+                    for p in self.process_list:
+                        ts_p = str(p.ts) + str(p.pid)
+                        ts_p = int(ts_p)
+                        while (ts_process < ts_p):
+                            while ts_p > ts_process:
+                                self.ts += 1
+                                ts_process = str(self.ts) + str(self.pid)
+                                ts_process = int(ts_process)
+
+                        thread5 = MyThread(1, self.process_list[self.queue[0]], 1, 1)
+                        thread5.start()
+
+                    self.queue = []
+
+host = '192.168.0.106'
 process_number = 1
 p = [Process(process_number, host, 5000), Process(process_number + 1, host, 5001), Process(process_number + 2, host, 5002)]
 
@@ -189,7 +213,7 @@ while True:
     for o in option:
         p[o-1].set_recurso()
 
-    thread1 = MyThread(0, option, 0)
+    thread1 = MyThread(0, option, 0, 0)
     thread1.start()
 
     time.sleep(0.5)
